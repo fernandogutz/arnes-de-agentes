@@ -1,0 +1,95 @@
+{
+  "project": "nebula-dental",
+  "description": "Cola de trabajo del loop SDD de Nébula Dental (web + API). Markdown/JSON local = fuente de verdad. Una feature = una rama feat/<id>-<name>; el spec vive en sdd/specs/<name>/.",
+  "rules": {
+    "sdd_required": "siempre: toda feature pasa por spec; lo que escala es la mecánica, no si hay spec",
+    "one_feature_at_a_time": true,
+    "human_gates": ["spec_ready", "merge_ready"],
+    "valid_status": ["pending", "spec_ready", "in_progress", "in_review", "merge_ready", "done", "blocked"],
+    "valid_complexity": ["trivial", "media", "compleja"],
+    "valid_areas": ["harness", "api", "web"],
+    "branch_rules": [
+      "una rama feat/<id>-<name> por feature, creada desde develop",
+      "conventional commits con scope = area (api|web|harness); un commit por area logica cuando la feature toca varias",
+      "nunca commitear directo en develop ni en main"
+    ],
+    "merge_rules": [
+      "los agentes mergean solo a develop, con --no-ff, y solo tras la confirmacion humana de la puerta 2",
+      "main lo promueve un humano a mano; ningun agente lo toca",
+      "la aprobacion de la puerta 1 se registra en la feature como spec_aprobado (fecha ISO); la feature sigue en spec_ready hasta que le toca"
+    ]
+  },
+  "features": [
+    {
+      "id": 1,
+      "name": "api_reservas",
+      "title": "Reservas: disponibilidad y creación",
+      "description": "Núcleo de la API: calcular los horarios libres de una sucursal para un día y crear una reserva en uno de ellos. Base de todo lo demás (cancelación, página de reserva en la web). Construida en bootstrap, antes de que existiera el loop; su spec y su review se escribieron después sobre el código real, como ejemplo.",
+      "areas": ["api"],
+      "complexity": "media",
+      "acceptance": [
+        "GET /api/disponibilidad?sucursal=<slug>&fecha=YYYY-MM-DD devuelve slots ISO UTC cada 30 min dentro del horario de la sucursal para ese día, sin los ya reservados; vacío si está cerrada",
+        "GET /api/disponibilidad responde 400 si falta o es inválido algún parámetro y 404 si la sucursal no existe",
+        "POST /api/reservas crea la reserva (201) con un código de 6 caracteres en mayúsculas y la devuelve; GET /api/reservas/:codigo la recupera",
+        "POST /api/reservas responde 409 { error: \"horario_no_disponible\" } si el slot ya está tomado o está fuera del horario",
+        "POST /api/reservas responde 400 { error: \"validacion\", detalles: [...] } si el body es inválido o la sucursal/servicio no existen",
+        "Todas las fechas se guardan y devuelven en UTC ISO 8601 (D-02); tests con node:test y app.request()"
+      ],
+      "status": "done",
+      "depends_on": [],
+      "spec_aprobado": "2026-09-21T15:10:00Z"
+    },
+    {
+      "id": 2,
+      "name": "api_servicios_por_categoria",
+      "title": "Filtrar servicios por categoría",
+      "description": "La página /servicios de la web quiere mostrar una categoría a la vez. Hoy GET /api/servicios devuelve todo y el filtro se hace en el cliente. Agregar el query param `categoria` al endpoint.",
+      "areas": ["api"],
+      "complexity": "trivial",
+      "acceptance": [
+        "GET /api/servicios?categoria=estetica devuelve solo los servicios de esa categoría",
+        "GET /api/servicios?categoria=<valor inválido> responde 400 { error: \"categoria_invalida\" }",
+        "GET /api/servicios sin parámetro sigue devolviendo todos los servicios",
+        "Tests con app.request() para los tres casos; docs/API-CONTRATO.md actualizado"
+      ],
+      "status": "pending",
+      "depends_on": []
+    },
+    {
+      "id": 3,
+      "name": "api_cancelar_reserva",
+      "title": "Cancelar una reserva",
+      "description": "Un paciente con su código debe poder cancelar. La reserva no se borra: pasa a estado `cancelada` y su horario vuelve a estar disponible.",
+      "areas": ["api"],
+      "complexity": "media",
+      "acceptance": [
+        "DELETE /api/reservas/:codigo pasa la reserva a estado \"cancelada\" y devuelve la reserva actualizada",
+        "Tras cancelar, el slot vuelve a aparecer en GET /api/disponibilidad de esa sucursal y fecha",
+        "DELETE /api/reservas/:codigo responde 404 { error: \"reserva_no_encontrada\" } si el código no existe",
+        "DELETE /api/reservas/:codigo responde 409 { error: \"reserva_ya_cancelada\" } si ya estaba cancelada",
+        "GET /api/reservas/:codigo de una reserva cancelada muestra estado: \"cancelada\"",
+        "Tests con app.request(); docs/API-CONTRATO.md actualizado con la ruta y los errores nuevos"
+      ],
+      "status": "pending",
+      "depends_on": [1]
+    },
+    {
+      "id": 4,
+      "name": "web_pagina_sucursal",
+      "title": "Página de detalle de sucursal",
+      "description": "Hoy /sucursales muestra tarjetas sin destino. Cada sucursal necesita su página con toda la información y un acceso directo a reservar ahí.",
+      "areas": ["web"],
+      "complexity": "media",
+      "acceptance": [
+        "Ruta /sucursales/:slug muestra nombre, dirección, teléfono, horario completo de la semana (lun-vie, sáb, dom), foto y link a Google Maps con las coordenadas de la sucursal",
+        "La página indica si la sucursal está abierta o cerrada ahora, calculado en hora de Santiago (D-02)",
+        "Botón \"Reservar en esta sucursal\" lleva a /reservar?sucursal=<slug> y el formulario de reserva llega con esa sucursal preseleccionada",
+        "Un slug inexistente muestra la vista \"Sucursal no encontrada\" con link de vuelta a /sucursales",
+        "Las tarjetas de /sucursales enlazan a su página de detalle",
+        "Tests con testing-library para: render con datos, abierta/cerrada según hora fija, slug inexistente, link del botón"
+      ],
+      "status": "pending",
+      "depends_on": []
+    }
+  ]
+}
