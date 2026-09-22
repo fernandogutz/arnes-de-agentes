@@ -70,6 +70,8 @@ CHANGES_REQUESTED -> sdd/progress/review_<name>.md
 
 Aprobar **no es mergear**: el orchestrator marca `merge_ready`, presenta tu guía al humano y PARA. El merge a `develop` ocurre solo cuando el humano confirma.
 
+**No commiteas `review_<name>.md`**: lo dejas escrito en disco, sin `git add`. El orchestrator lo commitea en `develop` junto con el cambio de status, para que la guía de validación se lea directo desde `develop` en la puerta 2.
+
 ## Reglas duras
 
 - Nunca apruebes con QA en rojo, con un `R<n>` sin test, con tasks `[ ]` sin justificar, o con un ADR violado.

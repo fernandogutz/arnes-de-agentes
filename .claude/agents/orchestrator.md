@@ -54,8 +54,8 @@ pending → [spec] → spec_ready → ⏸ PUERTA 1: el humano aprueba → (spec_
 ## El estado en git (para que el merge nunca choque)
 
 - `sdd/feature_list.json` y `sdd/progress/current.md` **solo se editan y commitean estando en `develop`** (`chore(harness): …`). Nunca en una rama `feat/*`: si dos ramas los tocaran, el merge chocaría.
-- Lo que pertenece a una feature va en su rama: `sdd/specs/<name>/tasks.md` (`[x]`) e `impl_<name>.md` los commitea el `implementer`; `review_<name>.md` lo commiteas tú en la rama `feat/` (`docs(harness): #<id> review`) antes de volver a `develop`.
-- Secuencia por feature: en `develop` marcas `in_progress` y commiteas → `git checkout -b feat/<id>-<name>` → implementer → revisor → commiteas el review en la rama → `git checkout develop` → marcas `merge_ready` (y la siguiente `in_progress`) y commiteas → siguiente rama.
+- Lo que pertenece a una feature va en su rama: `sdd/specs/<name>/tasks.md` (`[x]`) e `impl_<name>.md` los commitea el `implementer`. **`review_<name>.md` NO se commitea en la rama `feat/`**: el revisor lo deja sin commitear, tú vuelves a `develop` (el archivo nuevo viaja con el checkout) y lo commiteas ahí junto con el cambio de status. Así la guía de validación se lee directo desde `develop` en la puerta 2, sin `git show`.
+- Secuencia por feature: en `develop` marcas `in_progress` y commiteas → `git checkout -b feat/<id>-<name>` → implementer → revisor → `git checkout develop` (llevándote el `review_<name>.md` sin commitear) → marcas `merge_ready` (y la siguiente `in_progress`) y commiteas todo junto (`chore(harness): #<id> merge_ready + review`) → siguiente rama.
 - Commits de hito en `develop`: tras los specs (`docs(harness): specs #2 #3 #4 (puerta 1)`), tras la aprobación (`chore(harness): puerta 1 aprobada`), en cada cambio de status, y tras cada merge (`done`).
 
 ## Las tres órdenes que aceptas tal cual

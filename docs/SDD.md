@@ -103,4 +103,4 @@ El `implementer` marca `[x]` al terminar cada una (con su test verde). El `revis
 
 ## El estado en git
 
-`sdd/feature_list.json` y `sdd/progress/current.md` se editan y commitean **solo en `develop`**, por el orchestrator (`chore(harness): …`). Lo que pertenece a una feature (`sdd/specs/<name>/`, `impl_<name>.md`, `review_<name>.md`) viaja en su rama `feat/<id>-<name>` y llega a `develop` con el merge `--no-ff`. Así dos ramas nunca tocan el mismo archivo de estado y el merge no choca.
+`sdd/feature_list.json` y `sdd/progress/current.md` se editan y commitean **solo en `develop`**, por el orchestrator (`chore(harness): …`). Lo que el `implementer` produce (`sdd/specs/<name>/tasks.md` marcado, `impl_<name>.md`) viaja en su rama `feat/<id>-<name>` y llega a `develop` con el merge `--no-ff`. El `review_<name>.md` se commitea en `develop` (junto con el paso a `merge_ready`), para que la guía de validación se lea desde `develop` en la puerta 2. Así dos ramas nunca tocan el mismo archivo de estado y el merge no choca.
