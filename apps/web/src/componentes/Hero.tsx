@@ -1,11 +1,22 @@
 import { lazy, Suspense, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { DienteSvg } from '../tres/DienteSvg'
+import { LimiteEscena } from '../tres/LimiteEscena'
 import { soportaWebGL } from '../tres/soporte'
 import { useVisible } from '../tres/useVisible'
 import { IconoFlecha } from './Iconos'
 
 // La escena 3D se carga aparte: la home base pinta sin esperar a Three.js.
 const EscenaHero = lazy(() => import('../tres/EscenaHero'))
+
+// Sin WebGL (o mientras carga el chunk 3D) se muestra el mismo diente en SVG.
+function DienteFallback() {
+  return (
+    <div className="diente-css">
+      <DienteSvg />
+    </div>
+  )
+}
 
 const STATS = [
   { valor: '4', texto: 'sucursales en Chile' },
@@ -21,11 +32,13 @@ export function Hero() {
     <section className="hero" ref={ref} aria-labelledby="titulo-hero">
       <div className="hero__lienzo" aria-hidden="true">
         {webgl ? (
-          <Suspense fallback={<div className="orbe-css" />}>
-            <EscenaHero activo={visible} />
-          </Suspense>
+          <LimiteEscena respaldo={<DienteFallback />}>
+            <Suspense fallback={<DienteFallback />}>
+              <EscenaHero activo={visible} />
+            </Suspense>
+          </LimiteEscena>
         ) : (
-          <div className="orbe-css" />
+          <DienteFallback />
         )}
       </div>
 

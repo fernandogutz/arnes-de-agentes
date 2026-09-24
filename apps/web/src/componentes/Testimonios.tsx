@@ -12,7 +12,7 @@ export function Testimonios() {
         </Reveal>
         <div className="grilla grilla--3">
           {TESTIMONIOS.map((t, i) => (
-            <Reveal key={t.nombre} as="article" className="vidrio testimonio" retraso={i * 90}>
+            <Reveal key={t.nombre} as="article" className="vidrio vidrio--opaca testimonio" retraso={i * 90}>
               <IconoComillas className="testimonio__comillas" />
               <blockquote>{t.texto}</blockquote>
               <footer>

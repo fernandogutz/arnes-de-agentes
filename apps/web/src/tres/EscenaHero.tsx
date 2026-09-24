@@ -1,83 +1,99 @@
-// Escena 3D del hero: un cristal de vidrio con núcleo luminoso, satélites en órbita y partículas.
+// Escena 3D del hero: un molar de vidrio con la pulpa encendida, satélites en órbita y partículas.
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Float, Lightformer, MeshTransmissionMaterial } from '@react-three/drei'
 import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import { centroVertical, crearDienteGeometria } from './geometriaDiente'
 import { prefiereMenosMovimiento } from './soporte'
 
 const CIAN = '#38e8ff'
 const VIOLETA = '#8b5cf6'
 // Fondo que 've' el vidrio al refractar (el canvas es transparente y sin esto sale negro).
 const FONDO_CRISTAL = new THREE.Color('#17204a')
-const ICOSAEDRO = new THREE.IcosahedronGeometry(1.46, 0)
 
-function Cristal({ quieto }: { quieto: boolean }) {
+function Diente({ quieto }: { quieto: boolean }) {
   const grupo = useRef<THREE.Group>(null)
-  const nucleo = useRef<THREE.Mesh>(null)
+  const pulpa = useRef<THREE.Mesh>(null)
+  const objetivo = useRef({ x: 0, y: 0 })
   const { viewport } = useThree()
   const movil = viewport.aspect < 0.9
   const medio = viewport.aspect < 1.5
 
-  useFrame(({ pointer, clock }, delta) => {
+  // El molar se genera por código (ver geometriaDiente.ts): alta calidad para el vidrio,
+  // baja para la malla cian y la pulpa interior.
+  const geo = useMemo(() => crearDienteGeometria('molar', 'alta'), [])
+  const geoBaja = useMemo(() => crearDienteGeometria('molar', 'baja'), [])
+  // La geometría tiene el cuello en y = 0: la bajamos para que el diente quede centrado.
+  const centro = useMemo(() => centroVertical(geo), [geo])
+
+  useFrame(({ pointer, clock }) => {
     const g = grupo.current
     if (!g) return
     const t = clock.elapsedTime
     if (!quieto) {
-      g.rotation.y += delta * 0.18
-      // Sigue levemente al mouse.
-      g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, pointer.y * -0.35, 0.04)
-      g.rotation.z = THREE.MathUtils.lerp(g.rotation.z, pointer.x * 0.25, 0.04)
+      // Vaivén en vez de giro completo: así nunca se pierde la silueta de las dos raíces.
+      objetivo.current.y = Math.sin(t * 0.3) * 0.6 + pointer.x * 0.35
+      objetivo.current.x = pointer.y * -0.25
+      g.rotation.y = THREE.MathUtils.lerp(g.rotation.y, objetivo.current.y, 0.06)
+      g.rotation.x = THREE.MathUtils.lerp(g.rotation.x, objetivo.current.x, 0.04)
+      g.rotation.z = THREE.MathUtils.lerp(g.rotation.z, pointer.x * 0.12, 0.04)
     }
-    if (nucleo.current) {
-      const s = 0.42 + Math.sin(t * 2.2) * 0.03
-      nucleo.current.scale.setScalar(s)
+    if (pulpa.current) {
+      const s = 0.5 + Math.sin(t * 2.2) * 0.025
+      pulpa.current.scale.setScalar(s)
+      pulpa.current.position.y = -centro * s
     }
   })
 
   return (
-    <group ref={grupo} position={movil ? [0, 2.3, 0] : [Math.max(1.8, viewport.width * 0.29), 0.2, 0]}
-      scale={movil ? 0.55 : medio ? 0.8 : 1}>
+    <group
+      ref={grupo}
+      // En móvil el hero es todo texto: la pieza se va chica abajo a la derecha, al hueco
+      // que dejan las estadísticas, para no tapar ni empujar nada.
+      position={movil ? [1.12, -2.05, 0] : [Math.max(1.8, viewport.width * 0.29), 0.2, 0]}
+      scale={movil ? 0.38 : medio ? 0.78 : 1}
+    >
       <Float speed={quieto ? 0 : 1.4} rotationIntensity={0.25} floatIntensity={0.9}>
-        <mesh>
-          <icosahedronGeometry args={[1.45, 0]} />
-          <MeshTransmissionMaterial
-            samples={6}
-            resolution={512}
-            backside
-            backsideThickness={0.4}
-            background={FONDO_CRISTAL}
-            envMapIntensity={2.2}
-            thickness={0.7}
-            roughness={0.18}
-            ior={1.4}
-            chromaticAberration={0.05}
-            anisotropy={0.2}
-            distortion={0.2}
-            distortionScale={0.3}
-            temporalDistortion={0.06}
-            color="#eaf9ff"
-            attenuationColor="#9fe6ff"
-            attenuationDistance={4}
-          />
-        </mesh>
-        {/* Aristas del cristal */}
-        <lineSegments>
-          <edgesGeometry args={[ICOSAEDRO]} />
-          <lineBasicMaterial color={CIAN} transparent opacity={0.55} />
-        </lineSegments>
-        {/* Núcleo emisivo */}
-        <mesh ref={nucleo}>
-          <sphereGeometry args={[1, 32, 32]} />
-          <meshStandardMaterial color={VIOLETA} emissive={VIOLETA} emissiveIntensity={1.4} toneMapped={false} />
-        </mesh>
-        <pointLight color={VIOLETA} intensity={6} distance={6} />
+        <group rotation={[0.08, 0, 0.1]} scale={1.18}>
+          {/* Esmalte: mismo vidrio de transmisión que tenía el cristal abstracto. */}
+          <mesh geometry={geo} position={[0, -centro, 0]}>
+            <MeshTransmissionMaterial
+              samples={6}
+              resolution={512}
+              backside
+              backsideThickness={0.35}
+              background={FONDO_CRISTAL}
+              envMapIntensity={2.2}
+              thickness={0.55}
+              roughness={0.16}
+              ior={1.42}
+              chromaticAberration={0.045}
+              anisotropy={0.2}
+              distortion={0.14}
+              distortionScale={0.25}
+              temporalDistortion={0.05}
+              color="#eef9ff"
+              attenuationColor="#9fe6ff"
+              attenuationDistance={4}
+            />
+          </mesh>
+          {/* Malla del escaneo sobre el esmalte (reemplaza las aristas del cristal). */}
+          <mesh geometry={geoBaja} position={[0, -centro, 0]} scale={1.015}>
+            <meshBasicMaterial color={CIAN} wireframe transparent opacity={0.16} depthWrite={false} />
+          </mesh>
+          {/* Pulpa: el mismo diente, chico y emisivo, latiendo dentro del esmalte. */}
+          <mesh ref={pulpa} geometry={geoBaja} position={[0, -centro * 0.5, 0]} scale={0.5}>
+            <meshStandardMaterial color={VIOLETA} emissive={VIOLETA} emissiveIntensity={1.5} toneMapped={false} />
+          </mesh>
+          <pointLight color={VIOLETA} intensity={6} distance={6} />
+        </group>
       </Float>
       <Satelites quieto={quieto} />
     </group>
   )
 }
 
-// Tres anillos con esferas pequeñas (idea "molécula").
+// Tres anillos con esferas pequeñas: la "nébula" alrededor de la pieza.
 function Satelites({ quieto }: { quieto: boolean }) {
   const anillos = useRef<THREE.Group>(null)
   useFrame((_, delta) => {
@@ -88,9 +104,9 @@ function Satelites({ quieto }: { quieto: boolean }) {
   })
   const orbitas = useMemo(
     () => [
-      { radio: 2.3, inclinacion: 0.4, color: CIAN, n: 2 },
-      { radio: 2.8, inclinacion: -0.9, color: VIOLETA, n: 3 },
-      { radio: 3.3, inclinacion: 1.6, color: '#9ad7ff', n: 1 },
+      { radio: 1.95, inclinacion: 0.4, color: CIAN, n: 2 },
+      { radio: 2.45, inclinacion: -0.9, color: VIOLETA, n: 3 },
+      { radio: 3.0, inclinacion: 1.6, color: '#9ad7ff', n: 1 },
     ],
     [],
   )
@@ -143,7 +159,15 @@ function Particulas({ quieto }: { quieto: boolean }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[posiciones, 3]} />
       </bufferGeometry>
-      <pointsMaterial size={0.035} color={CIAN} transparent opacity={0.7} sizeAttenuation depthWrite={false} blending={THREE.AdditiveBlending} />
+      <pointsMaterial
+        size={0.035}
+        color={CIAN}
+        transparent
+        opacity={0.7}
+        sizeAttenuation
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
     </points>
   )
 }
@@ -168,7 +192,7 @@ export default function EscenaHero({ activo = true }: { activo?: boolean }) {
         <Lightformer form="rect" intensity={2.5} color={VIOLETA} position={[-5, -2, -1]} scale={[5, 5, 1]} target={[0, 0, 0]} />
         <Lightformer form="ring" intensity={1.5} color="#ffffff" position={[0, 6, 2]} scale={[3, 3, 1]} target={[0, 0, 0]} />
       </Environment>
-      <Cristal quieto={quieto} />
+      <Diente quieto={quieto} />
       <Particulas quieto={quieto} />
     </Canvas>
   )

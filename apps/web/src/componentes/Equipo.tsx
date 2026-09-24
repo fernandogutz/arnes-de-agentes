@@ -12,7 +12,7 @@ export function Equipo() {
         </Reveal>
         <div className="grilla grilla--4">
           {EQUIPO.map((p, i) => (
-            <Reveal key={p.nombre} as="article" className="vidrio vidrio--interactiva tarjeta-equipo" retraso={i * 80}>
+            <Reveal key={p.nombre} as="article" className="vidrio vidrio--opaca vidrio--interactiva tarjeta-equipo" retraso={i * 80}>
               <div className="tarjeta-equipo__foto">
                 <img src={p.foto} alt={`Retrato de ${p.nombre}`} loading="lazy" />
               </div>

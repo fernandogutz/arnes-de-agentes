@@ -15,6 +15,17 @@ export function Confirmacion() {
   const { datos: sucursales } = useSucursales()
   const { datos: servicios } = useServicios()
 
+  // Venimos de un wizard que quedó scrolleado: la confirmación siempre parte arriba, sin animación.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      try {
+        window.scrollTo({ top: 0, behavior: 'auto' })
+      } catch {
+        window.scrollTo(0, 0)
+      }
+    }
+  }, [])
+
   useEffect(() => {
     api
       .reserva(codigo)

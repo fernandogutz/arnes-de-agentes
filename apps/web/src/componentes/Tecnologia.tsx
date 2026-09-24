@@ -32,7 +32,7 @@ export function Tecnologia() {
             {TECNOLOGIAS.map((t, i) => {
               const Icono = ICONOS[t.id]
               return (
-                <Reveal key={t.id} as="article" className="vidrio vidrio--interactiva tarjeta-tec" retraso={i * 80}>
+                <Reveal key={t.id} as="article" className="vidrio vidrio--opaca vidrio--interactiva tarjeta-tec" retraso={i * 80}>
                   <span className="tarjeta-tec__icono">
                     <Icono />
                   </span>

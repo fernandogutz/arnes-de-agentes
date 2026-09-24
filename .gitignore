@@ -9,3 +9,4 @@ dist/
 !.env.example
 coverage/
 .claude/settings.local.json
+apps/api/data/nebula.db*
