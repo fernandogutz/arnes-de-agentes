@@ -80,6 +80,18 @@ run_case deny  "rm -rf ~/x"                                "rm -rf ~/x" "$REPO_D
 run_case deny  "rm -rf \$HOME/x"                           'rm -rf $HOME/x' "$REPO_DEV"
 run_case deny  "rm -rf . (el cwd entero)"                  "rm -rf ." "$REPO_DEV"
 
+echo "== Comandos encadenados (el guard mira cada segmento, no solo el primero) =="
+run_case deny  "checkout main && merge develop"            "git checkout main && git merge --no-ff develop" "$REPO_DEV"
+run_case deny  "switch main ; merge develop"               "git switch main ; git merge develop" "$REPO_DEV"
+run_case deny  "checkout main || merge develop"            "git checkout main || git merge develop" "$REPO_DEV"
+run_case deny  "npm test && git push origin main"          "npm test && git push origin main" "$REPO_DEV"
+run_case deny  "checkout main y luego push sin refspec"    "git checkout main && git push" "$REPO_DEV"
+run_case deny  "checkout main && rebase develop"           "git checkout main && git rebase develop" "$REPO_DEV"
+run_case allow "checkout develop && merge de una feature"  "git checkout develop && git merge --no-ff feat/2-x" "$REPO_DEV"
+run_case allow "checkout main solo (leer no es escribir)"  "git checkout main" "$REPO_DEV"
+run_case allow "tests y push a develop encadenados"        "npm test && git push origin develop" "$REPO_DEV"
+run_case allow "rama nueva y tests encadenados"            "git checkout -b feat/9-x develop && npm test" "$REPO_DEV"
+
 echo "== Fail-closed =="
 run_case deny  "stdin vacio"                               "__RAW__" "" ""
 run_case deny  "JSON sin command"                          "__RAW__" "" '{"tool_name":"Bash","tool_input":{}}'

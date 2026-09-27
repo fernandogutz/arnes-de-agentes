@@ -79,7 +79,7 @@ Tres ramas: `main` (solo humano), `develop` (donde mergean los agentes tras la p
 
 ```bash
 npm run qa            # typecheck + test + build de apps/api y apps/web
-npm run qa:harness    # test del hook (39 casos) + validador del estado SDD
+npm run qa:harness    # test del hook (49 casos) + validador del estado SDD
 ```
 
 Cada área tiene su comando propio en `docs/VERIFICATION.md`; el implementer lo corre después de cada task y el revisor lo vuelve a correr antes de aprobar.

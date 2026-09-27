@@ -102,7 +102,41 @@ push_refspecs() {
 }
 
 # rama_actual: rama de HEAD en el cwd del evento, o falla si no se puede resolver.
-rama_actual() { git -C "${CWD:-/nonexistent}" rev-parse --abbrev-ref HEAD 2>/dev/null; }
+# RAMA_FORZADA la fija el bucle de segmentos cuando un "checkout/switch <rama>" previo
+# en la MISMA línea ya cambió de rama: "git checkout main && git merge develop" tiene que
+# evaluarse como si el merge ocurriera en main, porque para cuando corre, ocurre en main.
+RAMA_FORZADA=""
+rama_actual() {
+  [ -n "$RAMA_FORZADA" ] && { printf '%s' "$RAMA_FORZADA"; return 0; }
+  git -C "${CWD:-/nonexistent}" rev-parse --abbrev-ref HEAD 2>/dev/null
+}
+
+# destino_checkout: si el comando es un checkout/switch a una rama, imprime esa rama.
+# Solo mira el primer argumento que no es opción; basta para seguir la pista de la rama.
+destino_checkout() {
+  local sub; sub="$(git_sub "$1")"
+  case "$sub" in checkout|switch) : ;; *) return 1 ;; esac
+  local tok visto=1
+  # shellcheck disable=SC2086
+  set -- $1
+  for tok in "$@"; do
+    if [ "$visto" -eq 1 ]; then [ "$tok" = "$sub" ] && visto=0; continue; fi
+    case "$tok" in
+      -b|-B|-c|-C|--track|-t) continue ;;
+      -*) continue ;;
+      --) continue ;;
+      *) printf '%s' "$tok"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# partir_en_segmentos: separa una línea en los comandos que la componen (&&, ||, ;, |,
+# salto de línea). Sin esto, el guard solo miraba el PRIMER comando y se colaba
+# "git checkout main && git merge --no-ff develop".
+partir_en_segmentos() {
+  printf '%s' "$1" | sed -e 's/&&/\n/g' -e 's/||/\n/g' -e 's/;/\n/g' -e 's/|/\n/g'
+}
 
 has() { printf '%s' "$1" | grep -Eq -- "$2"; }   # has <texto> <regex>
 
@@ -157,16 +191,38 @@ rmrf_peligroso() {
 }
 
 # --- Evaluación --------------------------------------------------------------------
-if is_force_push "$CMD"; then
-  emit_deny "R2: force push bloqueado (--force / -f / --force-with-lease). Los agentes no reescriben historia."
-fi
-if writes_to_main "$CMD"; then
-  if [ "$(git_sub "$CMD")" = "push" ]; then
-    emit_deny "R1: push a 'main' bloqueado. Los agentes mergean solo a 'develop' (puerta 2); main lo promueve un humano a mano."
+# Se evalúa CADA comando de la línea, no solo el primero, y se arrastra el cambio de
+# rama: si un segmento hace checkout a main, los siguientes se juzgan como si ya
+# estuvieran en main.
+evaluar_segmento() {
+  local seg="$1"
+  if is_force_push "$seg"; then
+    emit_deny "R2: force push bloqueado (--force / -f / --force-with-lease). Los agentes no reescriben historia."
   fi
-  emit_deny "R1: escritura sobre 'main' bloqueada ($(git_sub "$CMD")). Los agentes trabajan en feat/* y mergean solo a 'develop'; main nunca lo toca una máquina."
-fi
+  if writes_to_main "$seg"; then
+    if [ "$(git_sub "$seg")" = "push" ]; then
+      emit_deny "R1: push a 'main' bloqueado. Los agentes mergean solo a 'develop' (puerta 2); main lo promueve un humano a mano."
+    fi
+    emit_deny "R1: escritura sobre 'main' bloqueada ($(git_sub "$seg")). Los agentes trabajan en feat/* y mergean solo a 'develop'; main nunca lo toca una máquina."
+  fi
+  if rmrf_peligroso "$seg"; then
+    emit_deny "R3: 'rm -rf' bloqueado. Solo se permite con rutas relativas dentro del cwd, sin '..', '~', rutas absolutas, 'cd' ni metacaracteres. Separa el cd en otra llamada."
+  fi
+}
+
+# rm -rf se evalúa sobre la línea COMPLETA: su regla ya deniega ante cualquier
+# metacarácter, así que partirla la debilitaría.
 if rmrf_peligroso "$CMD"; then
   emit_deny "R3: 'rm -rf' bloqueado. Solo se permite con rutas relativas dentro del cwd, sin '..', '~', rutas absolutas, 'cd' ni metacaracteres. Separa el cd en otra llamada."
 fi
+
+while IFS= read -r segmento; do
+  [ -z "${segmento//[[:space:]]/}" ] && continue
+  evaluar_segmento "$segmento"
+  destino="$(destino_checkout "$segmento" || true)"
+  [ -n "$destino" ] && RAMA_FORZADA="$destino"
+done <<EOF_SEGMENTOS
+$(partir_en_segmentos "$CMD")
+EOF_SEGMENTOS
+
 exit 0

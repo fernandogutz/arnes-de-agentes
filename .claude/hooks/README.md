@@ -26,13 +26,15 @@ Las tres reglas, en una línea cada una:
 - **R2 — force push.** `--force`, `--force-with-lease`, `-f` suelto o agrupado (`-fv`). Tolerante a opciones globales (`git -c k=v push -f`).
 - **R3 — rm -rf.** Se permite solo si es trivialmente simple: rutas relativas, dentro del cwd, sin `..`, `~`, `$`, `;`, `&&`, `|`, backticks, paréntesis ni `cd`. Todo lo demás, deny. `rm -rf dist` pasa; `cd .. && rm -rf x` no.
 
+**Comandos encadenados.** Una llamada a Bash puede traer varios comandos en una línea. El guard la parte por `&&`, `||`, `;` y `|`, evalúa **cada** segmento, y arrastra el cambio de rama: en `git checkout main && git merge --no-ff develop`, el merge se juzga como si ya estuviera en `main` — porque cuando corra, lo estará. (Antes solo se miraba el primer comando y esa línea se colaba; encontrado probando el guard en vivo el 2026-09-27.) `rm -rf` se sigue evaluando sobre la línea completa, porque su regla ya deniega ante cualquier metacarácter y partirla la debilitaría.
+
 Fail-closed: `set -euo pipefail` + `trap ERR`. Si el JSON no se puede leer, si falta `command`, si falta `grep`/`git`/`jq`/`python3`, el hook deniega. Nunca degrada a "permitir" por un error interno.
 
 ## Cómo probar
 
 ```bash
 npm run qa:harness          # = bash .claude/hooks/tests/test_guard_bash.sh && node sdd/tools/check.mjs
-bash .claude/hooks/tests/test_guard_bash.sh   # solo el hook: 39 casos, una línea ok/FAIL por caso
+bash .claude/hooks/tests/test_guard_bash.sh   # solo el hook: 49 casos, una línea ok/FAIL por caso
 ```
 
 El test no necesita nada instalado más allá de bash, python3 y git. Para los casos que dependen de la rama actual (push sin refspec, merge estando en main) crea dos repos temporales con `mktemp -d`, uno en `main` y otro en `develop`.
