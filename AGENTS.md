@@ -28,11 +28,11 @@ Proceso completo: `docs/SDD.md`. Agentes: `.claude/agents/` (`orchestrator` repa
 - `docs/API-CONTRATO.md` — rutas, tipos y errores de la API. Se actualiza **antes** que el código.
 - `sdd/specs/api_reservas/` + `sdd/progress/{impl,review}_api_reservas.md` — feature #1 cerrada; es el ejemplo del nivel esperado.
 
-### Auto-invoke Skills
+### Skills: cuándo se cargan solas
 
-When performing these actions, ALWAYS invoke the corresponding skill FIRST:
+Antes de hacer cualquiera de estas acciones, carga SIEMPRE la skill correspondiente PRIMERO:
 
-| Action | Skill |
+| Acción | Skill |
 |--------|-------|
 | Agregar o modificar un endpoint de la API (`apps/api`) | `api-endpoint` |
 | Agregar o modificar un componente o página de la web (`apps/web`) | `web-componente` |
