@@ -73,7 +73,7 @@ Tres ramas: `main` (solo humano), `develop` (donde mergean los agentes tras la p
 
 ## La rama `desde-cero`
 
-`git checkout desde-cero` te deja el proyecto **sin arnés**: solo `apps/`, `docs/API-CONTRATO.md` y el `package.json`. Es el punto de partida para montar el arnés a mano siguiendo el video, archivo por archivo. `main` tiene el resultado terminado.
+`git checkout desde-cero` te deja el proyecto **sin arnés**: solo `apps/`, `docs/API-CONTRATO.md` y el `package.json`. Sirve para montarlo tú mismo pieza por pieza, en el mismo orden del video, y comparar con `main`, que tiene el resultado terminado.
 
 ## QA
 
