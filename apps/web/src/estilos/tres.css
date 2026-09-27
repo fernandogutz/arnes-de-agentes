@@ -1,0 +1,83 @@
+/* Marca de diente (logo) y fallback del hero cuando no hay WebGL o el 3D aún no carga. */
+
+.logo__diente {
+  width: 27px;
+  height: 27px;
+  flex: none;
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(56, 232, 255, 0.45));
+}
+
+/* Misma órbita que tenía el orbe: gira en su plano, inclinada. */
+.marca-diente__orbita {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transform: rotate(-28deg);
+  animation: orbitar-diente 8s linear infinite;
+}
+@keyframes orbitar-diente {
+  from {
+    transform: rotate(-28deg);
+  }
+  to {
+    transform: rotate(332deg);
+  }
+}
+
+/* Fallback del hero: el mismo diente en SVG, con el glow de la escena 3D. */
+.diente-css {
+  position: absolute;
+  right: 3%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(46vw, 420px);
+  aspect-ratio: 3 / 4;
+  display: grid;
+  place-items: center;
+}
+.diente-css::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 45% 40%,
+    rgba(56, 232, 255, 0.26),
+    rgba(139, 92, 246, 0.18) 55%,
+    transparent 72%
+  );
+  filter: blur(8px);
+}
+.diente-css svg {
+  position: relative;
+  width: 76%;
+  height: auto;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 46px rgba(56, 232, 255, 0.4));
+  animation: flotar-diente 9s ease-in-out infinite;
+}
+@keyframes flotar-diente {
+  50% {
+    transform: translateY(-16px);
+  }
+}
+
+@media (max-width: 820px) {
+  .diente-css {
+    right: 2%;
+    left: auto;
+    top: auto;
+    bottom: 2%;
+    transform: none;
+    width: min(34vw, 140px);
+    opacity: 0.65;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marca-diente__orbita,
+  .diente-css svg {
+    animation: none;
+  }
+}

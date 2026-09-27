@@ -42,11 +42,11 @@ export function Servicios({ conFiltros = false, limite, conEncabezado = true }: 
           </div>
         )}
 
-        <div className="grilla grilla--4" aria-busy={cargando}>
+        <div className="grilla grilla--servicios" aria-busy={cargando}>
           {cargando
             ? Array.from({ length: limite ?? 8 }, (_, i) => <div className="esqueleto" key={i} />)
             : visibles.map((s, i) => (
-                <Reveal key={s.slug} retraso={(i % 4) * 70}>
+                <Reveal key={s.slug} className="celda" retraso={(i % 3) * 70}>
                   <TarjetaServicio servicio={s} />
                 </Reveal>
               ))}

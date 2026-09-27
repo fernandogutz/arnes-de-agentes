@@ -1,12 +1,13 @@
 // Wizard de reserva en 4 pasos: sucursal → servicio → fecha y hora → datos del paciente.
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AvisoRespaldo } from '../componentes/AvisoRespaldo'
-import { IconoFlecha } from '../componentes/Iconos'
+import { IconoCheck, IconoFlecha } from '../componentes/Iconos'
 import { NOMBRES_CATEGORIA } from '../datos/respaldo'
 import { api, ErrorApi, useServicios, useSucursales } from '../lib/api'
 import { capitalizar, fechaLarga, horaLocal, horarioDelDia, proximosDias, slotsDeRespaldo } from '../lib/fechas'
 import { formatearCLP } from '../lib/precio'
+import { desplazarAlElemento } from '../lib/scroll'
 import type { Paciente } from '../lib/tipos'
 import { hayErrores, validarPaciente, type ErroresPaciente } from '../lib/validacion'
 
@@ -34,32 +35,61 @@ export function Reservar() {
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState<{ titulo: string; detalles?: string[] } | null>(null)
 
+  const refWizard = useRef<HTMLDivElement>(null)
+  const refTitulo = useRef<HTMLHeadingElement>(null)
+  const pasoPrevio = useRef<Paso | null>(null)
+  const saltoPorURL = useRef(false)
+  const omitirScroll = useRef(false)
+
   const sucursal = sucursales.find((s) => s.slug === sucursalSlug)
   const servicio = servicios.find((s) => s.slug === servicioSlug)
 
-  // Si venimos con ?sucursal= o ?servicio= válidos, saltamos al paso correspondiente.
+  // Si llegamos con ?sucursal= o ?servicio= válidos, partimos en el paso que corresponde (una sola vez).
   useEffect(() => {
-    if (paso !== 1) return
-    if (sucursalSlug && sucursales.some((s) => s.slug === sucursalSlug)) setPaso(servicioSlug ? 3 : 2)
-  }, [sucursales, sucursalSlug, servicioSlug, paso])
+    if (saltoPorURL.current) return
+    const desdeURL = params.get('sucursal') ?? ''
+    if (!desdeURL || !sucursales.some((s) => s.slug === desdeURL)) return
+    saltoPorURL.current = true
+    omitirScroll.current = true
+    const servicioURL = params.get('servicio') ?? ''
+    setPaso(servicioURL && servicios.some((s) => s.slug === servicioURL) ? 3 : 2)
+  }, [params, sucursales, servicios])
+
+  // Auto-scroll: al cambiar de paso, la vista (y el foco) arrancan en el paso nuevo.
+  // No se dispara en la primera pintada ni en el salto inicial por URL: ahí la página ya está arriba.
+  useEffect(() => {
+    const previo = pasoPrevio.current
+    pasoPrevio.current = paso
+    if (previo === null) return
+    if (omitirScroll.current) {
+      omitirScroll.current = false
+      return
+    }
+    desplazarAlElemento(refWizard.current)
+    refTitulo.current?.focus({ preventScroll: true })
+  }, [paso])
 
   // Disponibilidad al entrar al paso 3 o cambiar la fecha.
   useEffect(() => {
     if (paso !== 3 || !sucursal || !fecha) return
     let vivo = true
     setCargandoSlots(true)
-    setInicio('')
+    // Mantiene la hora elegida si sigue disponible (volver al paso 3 no borra lo que ya elegiste).
+    const aplicar = (nuevos: string[]) => {
+      setSlots(nuevos)
+      setInicio((actual) => (nuevos.includes(actual) ? actual : ''))
+    }
     api
       .disponibilidad(sucursal.slug, fecha)
       .then((d) => {
         if (!vivo) return
-        setSlots(soloFuturos(d.slots))
+        aplicar(soloFuturos(d.slots))
         setSlotsRespaldo(false)
       })
       .catch(() => {
         if (!vivo) return
         const dia = dias.find((d) => d.iso === fecha)
-        setSlots(soloFuturos(slotsDeRespaldo(fecha, horarioDelDia(sucursal.horario, dia?.diaSemana ?? 1))))
+        aplicar(soloFuturos(slotsDeRespaldo(fecha, horarioDelDia(sucursal.horario, dia?.diaSemana ?? 1))))
         setSlotsRespaldo(true)
       })
       .finally(() => vivo && setCargandoSlots(false))
@@ -79,6 +109,12 @@ export function Reservar() {
   function irA(p: Paso) {
     setErrorEnvio(null)
     setPaso(p)
+  }
+
+  // Cambiar de sucursal invalida la hora elegida (los cupos son por sucursal y día).
+  function elegirSucursal(slug: string) {
+    if (slug !== sucursalSlug) setInicio('')
+    setSucursalSlug(slug)
   }
 
   async function enviar(e: FormEvent) {
@@ -119,26 +155,46 @@ export function Reservar() {
     return null
   }
 
+  // Un paso del riel es alcanzable solo si ya tenemos lo que pide el anterior.
+  const alcanzable = (p: Paso): boolean => {
+    if (p === 1) return true
+    if (p === 2) return Boolean(sucursal)
+    if (p === 3) return Boolean(sucursal && servicio)
+    return Boolean(sucursal && servicio && inicio)
+  }
+
   return (
     <main className="pagina">
-      <div className="contenedor pagina__cabecera" style={{ paddingBottom: 24 }}>
+      <div className="contenedor pagina__cabecera pagina__cabecera--compacta">
         <span className="sobretitulo">Reservar hora</span>
         <h1>Cuatro pasos y listo.</h1>
         <p>Sin registro ni llamadas. Te confirmamos al instante con un código de 6 caracteres.</p>
       </div>
 
-      <div className="contenedor wizard">
-        <ol className="pasos" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      <div className="contenedor wizard" ref={refWizard}>
+        <ol className="pasos">
           {PASOS.map((nombre, i) => {
             const n = (i + 1) as Paso
-            const estado = n === paso ? 'activo' : n < paso ? 'hecho' : ''
+            const resumen = resumenPaso(n)
+            const hecho = n !== paso && resumen !== null
+            const estado = n === paso ? 'activo' : hecho ? 'hecho' : ''
+            const puedeIr = n !== paso && alcanzable(n)
             return (
               <li key={nombre}>
-                <button className={`paso ${estado}`} onClick={() => n < paso && irA(n)} disabled={n > paso} aria-current={n === paso ? 'step' : undefined}>
-                  <span className="paso__num">{n}</span>
-                  <span>
+                <button
+                  type="button"
+                  className={`paso ${estado}`}
+                  onClick={() => puedeIr && irA(n)}
+                  disabled={!puedeIr && n !== paso}
+                  aria-current={n === paso ? 'step' : undefined}
+                  aria-label={`Paso ${n}: ${nombre}${resumen ? `, ${resumen}` : ''}${puedeIr ? ' (volver a este paso)' : ''}`}
+                >
+                  <span className="paso__num" aria-hidden="true">
+                    {hecho ? <IconoCheck tamano={15} /> : n}
+                  </span>
+                  <span className="paso__texto">
                     {nombre}
-                    {n < paso && resumenPaso(n) && <small>{resumenPaso(n)}</small>}
+                    {hecho && resumen && <small>{resumen}</small>}
                   </span>
                 </button>
               </li>
@@ -146,7 +202,7 @@ export function Reservar() {
           })}
         </ol>
 
-        <section className="vidrio wizard__panel" aria-live="polite">
+        <section className="vidrio wizard__panel">
           {errorEnvio && (
             <div className="alerta" role="alert">
               {errorEnvio.titulo}
@@ -162,14 +218,17 @@ export function Reservar() {
 
           {paso === 1 && (
             <>
-              <h2>¿En qué sucursal?</h2>
+              <h2 ref={refTitulo} tabIndex={-1} className="wizard__titulo">
+                ¿En qué sucursal?
+              </h2>
               <AvisoRespaldo visible={sucRespaldo} />
               <div className="opciones">
                 {sucursales.map((s) => (
                   <button
                     key={s.slug}
+                    type="button"
                     className={`opcion ${s.slug === sucursalSlug ? 'seleccionada' : ''}`}
-                    onClick={() => setSucursalSlug(s.slug)}
+                    onClick={() => elegirSucursal(s.slug)}
                     aria-pressed={s.slug === sucursalSlug}
                   >
                     <b>{s.nombre}</b>
@@ -181,29 +240,33 @@ export function Reservar() {
                   </button>
                 ))}
               </div>
-              <div className="wizard__acciones">
-                <span />
-                <button className="boton boton--primario" disabled={!sucursal} onClick={() => irA(2)}>
+              <Acciones pista={sucursal ? null : 'Elige una sucursal para continuar.'}>
+                <button className="boton boton--primario" type="button" disabled={!sucursal} onClick={() => irA(2)}>
                   Continuar <IconoFlecha />
                 </button>
-              </div>
+              </Acciones>
             </>
           )}
 
           {paso === 2 && (
             <>
-              <h2>¿Qué necesitas?</h2>
+              <h2 ref={refTitulo} tabIndex={-1} className="wizard__titulo">
+                ¿Qué necesitas?
+              </h2>
               <AvisoRespaldo visible={servRespaldo} />
               <div className="opciones">
                 {servicios.map((s) => (
                   <button
                     key={s.slug}
+                    type="button"
                     className={`opcion ${s.slug === servicioSlug ? 'seleccionada' : ''}`}
                     onClick={() => setServicioSlug(s.slug)}
                     aria-pressed={s.slug === servicioSlug}
                   >
                     <b>{s.nombre}</b>
-                    <span>{NOMBRES_CATEGORIA[s.categoria]} · {s.duracionMin} min</span>
+                    <span>
+                      {NOMBRES_CATEGORIA[s.categoria]} · {s.duracionMin} min
+                    </span>
                     <div className="opcion__meta">
                       <span>desde</span>
                       <strong>{formatearCLP(s.precioDesde)}</strong>
@@ -211,27 +274,29 @@ export function Reservar() {
                   </button>
                 ))}
               </div>
-              <div className="wizard__acciones">
-                <button className="boton boton--texto" onClick={() => irA(1)}>
-                  ← Sucursal
-                </button>
-                <button className="boton boton--primario" disabled={!servicio} onClick={() => irA(3)}>
+              <Acciones atras={{ etiqueta: 'Sucursal', alPulsar: () => irA(1) }} pista={servicio ? null : 'Elige un servicio para continuar.'}>
+                <button className="boton boton--primario" type="button" disabled={!servicio} onClick={() => irA(3)}>
                   Continuar <IconoFlecha />
                 </button>
-              </div>
+              </Acciones>
             </>
           )}
 
           {paso === 3 && sucursal && (
             <>
-              <h2>¿Cuándo?</h2>
-              <p className="silenciado pequeno">Horas en hora de Chile (America/Santiago) para {sucursal.nombre}.</p>
-              <div className="dias" role="tablist" aria-label="Día">
+              <h2 ref={refTitulo} tabIndex={-1} className="wizard__titulo">
+                ¿Cuándo?
+              </h2>
+              <p className="silenciado pequeno wizard__nota">
+                Horas en hora de Chile (America/Santiago) para {sucursal.nombre}.
+              </p>
+              <div className="dias" role="group" aria-label="Día">
                 {dias.map((d) => {
                   const cerrado = !horarioDelDia(sucursal.horario, d.diaSemana)
                   return (
                     <button
                       key={d.iso}
+                      type="button"
                       className={`dia ${d.iso === fecha ? 'seleccionado' : ''}`}
                       disabled={cerrado}
                       onClick={() => setFecha(d.iso)}
@@ -245,103 +310,134 @@ export function Reservar() {
                 })}
               </div>
               <AvisoRespaldo visible={slotsRespaldo} />
-              {cargandoSlots ? (
-                <div className="vacio">
-                  <span className="cargando" aria-label="Buscando horas" />
-                </div>
-              ) : slots.length === 0 ? (
-                <div className="vacio">No quedan horas para este día. Prueba con otro.</div>
-              ) : (
-                <div className="horas" role="listbox" aria-label="Hora">
-                  {slots.map((s) => (
-                    <button
-                      key={s}
-                      role="option"
-                      aria-selected={s === inicio}
-                      className={`hora ${s === inicio ? 'seleccionada' : ''}`}
-                      onClick={() => setInicio(s)}
-                    >
-                      {horaLocal(s)}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="wizard__acciones">
-                <button className="boton boton--texto" onClick={() => irA(2)}>
-                  ← Servicio
-                </button>
-                <button className="boton boton--primario" disabled={!inicio} onClick={() => irA(4)}>
+              <div aria-live="polite">
+                {cargandoSlots ? (
+                  <div className="vacio vacio--cargando">
+                    <span className="cargando" aria-hidden="true" /> Buscando horas disponibles…
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="vacio">No quedan horas para este día. Prueba con otro.</div>
+                ) : (
+                  <>
+                    <p className="silenciado pequeno wizard__nota">
+                      {slots.length} {slots.length === 1 ? 'hora disponible' : 'horas disponibles'}
+                    </p>
+                    <div className="horas" role="listbox" aria-label="Hora">
+                      {slots.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          role="option"
+                          aria-selected={s === inicio}
+                          className={`hora ${s === inicio ? 'seleccionada' : ''}`}
+                          onClick={() => setInicio(s)}
+                        >
+                          {horaLocal(s)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <Acciones atras={{ etiqueta: 'Servicio', alPulsar: () => irA(2) }} pista={inicio ? null : 'Elige una hora para continuar.'}>
+                <button className="boton boton--primario" type="button" disabled={!inicio} onClick={() => irA(4)}>
                   Continuar <IconoFlecha />
                 </button>
-              </div>
+              </Acciones>
             </>
           )}
 
           {paso === 4 && sucursal && servicio && (
-            <form onSubmit={enviar} noValidate>
-              <div style={{ display: 'grid', gap: 22 }}>
-                <h2>Tus datos</h2>
-                <div className="resumen">
-                  <div>
-                    <span>Sucursal</span>
-                    <b>{sucursal.nombre}</b>
-                  </div>
-                  <div>
-                    <span>Servicio</span>
-                    <b>
-                      {servicio.nombre} · desde {formatearCLP(servicio.precioDesde)}
-                    </b>
-                  </div>
-                  <div>
-                    <span>Cuándo</span>
-                    <b>
-                      {capitalizar(fechaLarga(inicio))} · {horaLocal(inicio)} hrs
-                    </b>
-                  </div>
+            <form onSubmit={enviar} noValidate className="wizard__form">
+              <h2 ref={refTitulo} tabIndex={-1} className="wizard__titulo">
+                Tus datos
+              </h2>
+              <div className="resumen">
+                <div>
+                  <span>Sucursal</span>
+                  <b>{sucursal.nombre}</b>
                 </div>
-                <div className="grilla grilla--2">
-                  <Campo
-                    id="nombre"
-                    etiqueta="Nombre y apellido"
-                    valor={paciente.nombre}
-                    error={errores.nombre}
-                    alCambiar={(v) => setPaciente({ ...paciente, nombre: v })}
-                    autoComplete="name"
-                  />
-                  <Campo
-                    id="telefono"
-                    etiqueta="Teléfono"
-                    tipo="tel"
-                    valor={paciente.telefono}
-                    error={errores.telefono}
-                    alCambiar={(v) => setPaciente({ ...paciente, telefono: v })}
-                    autoComplete="tel"
-                    placeholder="+56 9 1234 5678"
-                  />
+                <div>
+                  <span>Servicio</span>
+                  <b>
+                    {servicio.nombre} · desde {formatearCLP(servicio.precioDesde)}
+                  </b>
                 </div>
-                <Campo
-                  id="email"
-                  etiqueta="Correo (te enviamos la confirmación)"
-                  tipo="email"
-                  valor={paciente.email}
-                  error={errores.email}
-                  alCambiar={(v) => setPaciente({ ...paciente, email: v })}
-                  autoComplete="email"
-                />
-                <div className="wizard__acciones">
-                  <button type="button" className="boton boton--texto" onClick={() => irA(3)}>
-                    ← Fecha y hora
-                  </button>
-                  <button type="submit" className="boton boton--primario" disabled={enviando}>
-                    {enviando ? <span className="cargando" aria-label="Enviando" /> : 'Confirmar reserva'}
-                  </button>
+                <div>
+                  <span>Cuándo</span>
+                  <b>
+                    {capitalizar(fechaLarga(inicio))} · {horaLocal(inicio)} hrs
+                  </b>
                 </div>
               </div>
+              <div className="grilla grilla--2">
+                <Campo
+                  id="nombre"
+                  etiqueta="Nombre y apellido"
+                  valor={paciente.nombre}
+                  error={errores.nombre}
+                  alCambiar={(v) => setPaciente({ ...paciente, nombre: v })}
+                  autoComplete="name"
+                />
+                <Campo
+                  id="telefono"
+                  etiqueta="Teléfono"
+                  tipo="tel"
+                  valor={paciente.telefono}
+                  error={errores.telefono}
+                  alCambiar={(v) => setPaciente({ ...paciente, telefono: v })}
+                  autoComplete="tel"
+                  placeholder="+56 9 1234 5678"
+                />
+              </div>
+              <Campo
+                id="email"
+                etiqueta="Correo (te enviamos la confirmación)"
+                tipo="email"
+                valor={paciente.email}
+                error={errores.email}
+                alCambiar={(v) => setPaciente({ ...paciente, email: v })}
+                autoComplete="email"
+              />
+              <Acciones atras={{ etiqueta: 'Fecha y hora', alPulsar: () => irA(3) }}>
+                <button type="submit" className="boton boton--primario" disabled={enviando}>
+                  {enviando ? (
+                    <>
+                      <span className="cargando" aria-hidden="true" /> Confirmando…
+                    </>
+                  ) : (
+                    'Confirmar reserva'
+                  )}
+                </button>
+              </Acciones>
             </form>
           )}
         </section>
       </div>
     </main>
+  )
+}
+
+type AccionesProps = {
+  atras?: { etiqueta: string; alPulsar: () => void }
+  pista?: string | null
+  children: ReactNode
+}
+
+// Barra de acciones pegada al borde inferior del panel: "Continuar" siempre a la vista.
+function Acciones({ atras, pista, children }: AccionesProps) {
+  return (
+    <div className="wizard__acciones">
+      {atras ? (
+        <button type="button" className="boton boton--texto" onClick={atras.alPulsar}>
+          <span aria-hidden="true">←</span> {atras.etiqueta}
+        </button>
+      ) : (
+        <span className="wizard__hueco" />
+      )}
+      {pista && <span className="wizard__pista">{pista}</span>}
+      {children}
+    </div>
   )
 }
 

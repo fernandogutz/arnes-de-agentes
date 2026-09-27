@@ -87,6 +87,14 @@
   background: var(--vidrio-2);
   box-shadow: var(--sombra), 0 0 0 1px rgba(56, 232, 255, 0.08) inset;
 }
+/* Variante sin blur. Muchos backdrop-filter apilados en una grilla (8 tarjetas en
+   /servicios) hacen que el compositor deje tarjetas sin pintar. Sobre el fondo plano
+   de la página el blur no aporta nada, así que el vidrio se queda solo donde sí se
+   nota: nav pegada, botones fantasma y chips sobre fotografía. */
+.vidrio--opaca {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 
 /* ---------- Nav ---------- */
 .nav {
@@ -371,6 +379,16 @@
   display: grid;
   gap: 18px;
 }
+/* Celda: cuando <Reveal> envuelve una tarjeta, el ítem de la grilla es el wrapper y
+   se estira, pero la tarjeta de adentro no. Este flex le pasa el alto de la fila. */
+.celda {
+  display: flex;
+  min-width: 0;
+}
+.celda > * {
+  flex: 1;
+  min-width: 0;
+}
 .grilla--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -394,6 +412,21 @@
   .grilla--4,
   .grilla--3,
   .grilla--2 {
+    grid-template-columns: 1fr;
+  }
+}
+/* Servicios: 3 columnas en escritorio (la tarjeta necesita ancho para título + precio),
+   2 en tablet, 1 en teléfono. */
+.grilla--servicios {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1000px) {
+  .grilla--servicios {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .grilla--servicios {
     grid-template-columns: 1fr;
   }
 }
@@ -441,11 +474,12 @@
 }
 .tarjeta-tec {
   padding: 24px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  align-content: start;
 }
 .tarjeta-tec__icono {
+  flex: none;
   width: 48px;
   height: 48px;
   display: grid;
@@ -456,6 +490,7 @@
   color: var(--cian);
 }
 .tarjeta-tec__dato {
+  margin-top: auto;
   font-family: var(--f-display);
   font-weight: 600;
   font-size: 0.85rem;
@@ -469,19 +504,19 @@
 
 /* ---------- Servicios ---------- */
 .tarjeta-servicio {
-  padding: 26px;
-  display: grid;
-  gap: 12px;
-  align-content: start;
-  min-height: 220px;
-}
-.tarjeta-servicio__cabecera {
+  padding: 24px;
   display: flex;
-  justify-content: space-between;
-  align-items: start;
+  flex-direction: column;
   gap: 12px;
+  min-height: 240px;
+}
+.tarjeta-servicio__titulo {
+  font-size: 1.15rem;
+  text-wrap: balance;
 }
 .etiqueta {
+  align-self: flex-start;
+  max-width: 100%;
   display: inline-block;
   padding: 4px 10px;
   border-radius: 999px;
@@ -508,16 +543,21 @@
   border-color: rgba(255, 92, 122, 0.35);
   background: rgba(255, 92, 122, 0.08);
 }
-.tarjeta-servicio p {
+.tarjeta-servicio__texto {
+  flex: 1;
   color: var(--texto-2);
   font-size: 0.95rem;
+  /* Dos líneas de piso: evita que el pie baile entre tarjetas con textos cortos. */
+  min-height: 3.1em;
+  text-wrap: pretty;
 }
 .tarjeta-servicio__pie {
   margin-top: auto;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
+  gap: 4px 12px;
   padding-top: 14px;
   border-top: 1px solid var(--borde);
 }
@@ -558,10 +598,12 @@
 /* ---------- Sucursales ---------- */
 .tarjeta-sucursal {
   overflow: hidden;
-  display: grid;
-  grid-template-rows: 200px auto;
+  display: flex;
+  flex-direction: column;
 }
 .tarjeta-sucursal__foto {
+  flex: none;
+  height: 200px;
   position: relative;
   overflow: hidden;
 }
@@ -617,9 +659,11 @@
   }
 }
 .tarjeta-sucursal__cuerpo {
+  flex: 1;
   padding: 20px 22px 22px;
   min-width: 0;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 .tarjeta-sucursal__cuerpo h3 {
@@ -646,7 +690,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: auto;
+  padding-top: 10px;
 }
 .tarjeta-sucursal__dato span,
 .tarjeta-sucursal__dato a {
@@ -657,8 +702,11 @@
 /* ---------- Equipo ---------- */
 .tarjeta-equipo {
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .tarjeta-equipo__foto {
+  flex: none;
   aspect-ratio: 4 / 4.4;
   overflow: hidden;
 }
@@ -676,8 +724,10 @@
   filter: saturate(1);
 }
 .tarjeta-equipo__cuerpo {
+  flex: 1;
   padding: 18px 20px 20px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 .tarjeta-equipo__cuerpo h3 {
@@ -697,20 +747,24 @@
 /* ---------- Testimonios ---------- */
 .testimonio {
   padding: 28px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
 }
 .testimonio__comillas {
+  flex: none;
   color: var(--violeta);
   filter: brightness(1.3);
 }
 .testimonio blockquote {
+  flex: 1;
   margin: 0;
   font-size: 1.05rem;
   line-height: 1.55;
   text-wrap: pretty;
 }
 .testimonio footer {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -718,6 +772,7 @@
   color: var(--texto-2);
 }
 .avatar {
+  flex: none;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -732,6 +787,26 @@
 .testimonio footer b {
   display: block;
   color: var(--texto);
+}
+
+/* ---------- Tarjetas en teléfono: menos padding, más texto ---------- */
+@media (max-width: 620px) {
+  .tarjeta-servicio {
+    padding: 20px;
+    min-height: 0;
+  }
+  .tarjeta-tec {
+    padding: 20px;
+  }
+  .testimonio {
+    padding: 22px;
+  }
+  .tarjeta-sucursal__cuerpo {
+    padding: 18px 18px 20px;
+  }
+  .tarjeta-equipo__cuerpo {
+    padding: 16px 18px 18px;
+  }
 }
 
 /* ---------- CTA final ---------- */

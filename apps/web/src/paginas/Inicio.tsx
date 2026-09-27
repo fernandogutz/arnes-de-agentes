@@ -11,7 +11,7 @@ export function Inicio() {
     <>
       <Hero />
       <Tecnologia />
-      <Servicios limite={4} />
+      <Servicios limite={6} />
       <Sucursales />
       <Equipo />
       <Testimonios />

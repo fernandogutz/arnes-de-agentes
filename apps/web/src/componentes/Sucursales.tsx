@@ -20,7 +20,7 @@ export function Sucursales({ conEncabezado = true }: { conEncabezado?: boolean }
           {cargando
             ? Array.from({ length: 4 }, (_, i) => <div className="esqueleto" key={i} style={{ minHeight: 380 }} />)
             : datos.map((s, i) => (
-                <Reveal key={s.slug} retraso={i * 80}>
+                <Reveal key={s.slug} className="celda" retraso={i * 80}>
                   <TarjetaSucursal sucursal={s} />
                 </Reveal>
               ))}

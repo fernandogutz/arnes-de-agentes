@@ -13,7 +13,7 @@ export function TarjetaSucursal({ sucursal, ahora = new Date() }: Props) {
   const abierta = estaAbierta(sucursal.horario, ahora)
   const hoy = horarioDeHoy(sucursal.horario, ahora)
   return (
-    <article className="vidrio vidrio--interactiva tarjeta-sucursal" id={sucursal.slug} data-testid="tarjeta-sucursal">
+    <article className="vidrio vidrio--opaca vidrio--interactiva tarjeta-sucursal" id={sucursal.slug} data-testid="tarjeta-sucursal">
       <div className="tarjeta-sucursal__foto">
         <img src={sucursal.imagen} alt={`Interior de ${sucursal.nombre}`} loading="lazy" />
         <span className={`tarjeta-sucursal__estado ${abierta ? 'abierta' : ''}`}>{textoEstado(sucursal.horario, ahora)}</span>
