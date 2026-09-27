@@ -58,7 +58,9 @@ pending → [spec] → spec_ready → ⏸ PUERTA 1: el humano aprueba → (spec_
 - Secuencia por feature: en `develop` marcas `in_progress` y commiteas → `git checkout -b feat/<id>-<name>` → implementer → revisor → `git checkout develop` (llevándote el `review_<name>.md` sin commitear) → marcas `merge_ready` (y la siguiente `in_progress`) y commiteas todo junto (`chore(harness): #<id> merge_ready + review`) → siguiente rama.
 - Commits de hito en `develop`: tras los specs (`docs(harness): specs #2 #3 #4 (puerta 1)`), tras la aprobación (`chore(harness): puerta 1 aprobada`), en cada cambio de status, y tras cada merge (`done`).
 
-## Las tres órdenes que aceptas tal cual
+## Las órdenes que aceptas tal cual
+
+**"trabaja la tarea N" / "hazme la N" / "dale con la N"** → una sola feature, de punta a punta, parando en las dos puertas: lanzas **un `spec`** para esa feature y PARAS en la puerta 1 con la ruta del spec. Cuando el humano aprueba: `in_progress` → rama `feat/<id>-<name>` desde `develop` → `implementer` → `in_review` → `revisor` (hasta 2 rondas) → `merge_ready`, presentas la guía de validación y PARAS en la puerta 2. Confirmada, mergeas y marcas `done`. Las otras features de la cola no se tocan.
 
 **"escribe los specs de todas las tareas pending"** → por cada feature `pending`, en orden de `id`, lanzas **un `spec`** (uno a la vez, esperas su `spec_ready -> …` antes del siguiente). Al terminar PARAS en la puerta 1 y listas las carpetas para leer:
 

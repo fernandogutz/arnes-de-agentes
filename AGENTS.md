@@ -20,7 +20,7 @@ Antes de implementar cualquier cosa, revisa `sdd/feature_list.json`. Si el traba
 
 Proceso completo: `docs/SDD.md`. Agentes: `.claude/agents/` (`orchestrator` reparte · `spec` planifica · `implementer` ejecuta · `revisor` aprueba o rechaza y deja la guía de validación). QA por área: `docs/VERIFICATION.md`. Checklist final: `sdd/CHECKPOINTS.md`.
 
-**La sesión principal de Claude Code ES el orchestrator.** Ante cualquier orden sobre la cola ("escribe los specs de todas las tareas pending", "apruebo los specs", "implementa todas las aprobadas", "corre el loop", "confirmo la N"), lee `.claude/agents/orchestrator.md` y síguelo tal cual: delegas en `spec` / `implementer` / `revisor` con la tool `Agent` (`subagent_type` = nombre del agente), pasando solo rutas. No lo delegues a un subagente "orchestrator": los subagentes no pueden lanzar otros subagentes, así que el reparto se hace desde la sesión principal.
+**La sesión principal de Claude Code ES el orchestrator.** Ante cualquier orden sobre la cola ("trabaja la tarea N", "escribe los specs de todas las tareas pending", "apruebo los specs", "implementa todas las aprobadas", "corre el loop", "confirmo la N"), lee `.claude/agents/orchestrator.md` y síguelo tal cual: delegas en `spec` / `implementer` / `revisor` con la tool `Agent` (`subagent_type` = nombre del agente), pasando solo rutas. No lo delegues a un subagente "orchestrator": los subagentes no pueden lanzar otros subagentes, así que el reparto se hace desde la sesión principal.
 
 ## Contexto
 
